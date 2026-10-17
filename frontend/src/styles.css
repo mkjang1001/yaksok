@@ -97,6 +97,7 @@ h1, h2, h3, p { margin: 0; }
 
 /* ---------- cards ---------- */
 .card { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.85rem; border: 2px solid var(--line); border-radius: 0.8rem; background: var(--bg); }
+.card.row { flex-direction: row; align-items: center; }
 .card-link { color: var(--ink); text-decoration: none; }
 .card-ok { border-color: var(--good); }
 .card-warn { border: 2px dashed var(--amber); background: var(--amber-soft); }
