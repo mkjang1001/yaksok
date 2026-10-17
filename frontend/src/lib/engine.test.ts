@@ -8,7 +8,9 @@ import { describe, expect, it } from "vitest";
 import { DrugData, bucket, fnv1a, searchKey } from "./data";
 import { chosung, josa, normalize } from "./hangul";
 import { checkMeds, type CheckItem } from "./rules";
-import { matchLines, searchDrugs, splitDose } from "./search";
+import {
+  extractInsuranceCode, extractInsuranceCodes, isNoiseLine, matchLines, prepareLine, searchDrugs, splitDose, splitDrugs,
+} from "./search";
 
 const DATA_DIR = join(__dirname, "..", "..", "public", "data");
 
@@ -168,5 +170,87 @@ describe("검색과 봉투 글자", () => {
     const log: string[] = [];
     await matchLines(makeData(log), ["에소메프라졸정 40mg", "라베프라졸정 10mg"]);
     expect(log.every((p) => p.startsWith("search/"))).toBe(true);
+  });
+});
+
+describe("봉투 줄 정리", () => {
+  it("약국명·전화·주소·날짜·금액 줄은 버린다", () => {
+    for (const line of [
+      "행복약국", "OO온누리약국 약사 홍길동", "☎ 02-123-4567", "TEL 031)123-4567", "전화 010 1234 5678",
+      "서울특별시 강남구 테헤란로 123", "경기도 성남시 분당구", "판교역로 235 3층",
+      "조제일자 2026.10.10", "2026년 10월 10일", "10월 10일 교부", "본인부담금 3,500원", "약제비 총액 12,000",
+      "합계 4500원", "사업자등록번호 123-45-67890", "환자성명 김OO",
+    ]) {
+      expect(isNoiseLine(line) || prepareLine(line).noise, line).toBe(true);
+    }
+  });
+
+  it("복용법만 있는 줄은 버리고, 약 이름 옆 복용법은 지운다", () => {
+    for (const line of ["1일 3회 식후 30분", "아침 저녁 복용하세요", "1회 1정씩 하루 2번", "총 30일분", "취침 전 드세요"]) {
+      expect(prepareLine(line).noise, line).toBe(true);
+    }
+    const l = prepareLine("에소메프라졸정 40mg 1일 1회 아침 식후 30분 복용");
+    expect(l.noise).toBe(false);
+    expect(l.text).toBe("에소메프라졸정");
+    expect(l.dose).toBe("40mg");
+  });
+
+  it("약 이름 줄은 잡음으로 보지 않는다", () => {
+    for (const line of ["아세트아미노펜서방정 650mg", "셀레콕시브캡슐 200mg", "[샘플] 종합감기약정", "1. 암로디핀정 5mg"]) {
+      expect(isNoiseLine(line) || prepareLine(line).noise, line).toBe(false);
+    }
+  });
+
+  it("한 줄에 붙은 약 두 개를 나눈다", () => {
+    expect(splitDrugs("에소메프라졸정40mg 라베프라졸정10mg")).toEqual(["에소메프라졸정40mg", "라베프라졸정10mg"]);
+    expect(splitDrugs("암로디핀정 5mg, 메트포르민정 500mg")).toEqual(["암로디핀정 5mg", "메트포르민정 500mg"]);
+    expect(splitDrugs("에소메프라졸정/라베프라졸정")).toEqual(["에소메프라졸정", "라베프라졸정"]);
+    expect(splitDrugs("암로디핀정 메트포르민정")).toEqual(["암로디핀정", "메트포르민정"]);
+    expect(splitDrugs("에소메프라졸정 40mg 1일 1회")).toEqual(["에소메프라졸정 40mg 1일 1회"]);
+    expect(splitDrugs("아세트아미노펜서방정 650mg")).toEqual(["아세트아미노펜서방정 650mg"]);
+  });
+
+  it("붙은 두 약을 각각 찾는다", async () => {
+    const out = await matchLines(makeData(), ["에소메프라졸정40mg 라베프라졸정10mg", "암로디핀정 5mg, 메트포르민정 500mg"]);
+    expect(out.map((l) => l.candidates[0].item_seq)).toEqual(["S000000006", "S000000008", "S000000001", "S000000002"]);
+  });
+
+  it("처방전 9자리 보험코드를 뽑는다 (전화·사업자번호·긴 숫자는 아님)", () => {
+    expect(extractInsuranceCode("642102570 에소메프라졸정 40mg 1 1 30")).toBe("642102570");
+    expect(extractInsuranceCode("1 645301220")).toBe("645301220");
+    expect(extractInsuranceCode("02-1234-5678")).toBeNull();
+    expect(extractInsuranceCode("123-45-67890")).toBeNull();
+    expect(extractInsuranceCode("1234567890")).toBeNull();
+    expect(extractInsuranceCode("에소메프라졸정 40mg")).toBeNull();
+    expect(extractInsuranceCodes(["642102570 에소메프라졸정 40mg", "645301220", "642102570", "☎ 02-123-4567"]))
+      .toEqual(["642102570", "645301220"]);
+  });
+
+  it("처방전 줄: 코드는 insurance_code로, 이름은 그대로 찾는다", async () => {
+    const out = await matchLines(makeData(), [
+      "OO내과의원 처방전",
+      "1 642102570 에소메프라졸정 40mg 1 1 30",
+      "2 671803460 라베프라졸정10mg 1.00 2 30",
+      "교부일자 2026-10-10",
+    ]);
+    expect(out.map((l) => [l.insurance_code, l.candidates[0].item_seq])).toEqual([
+      ["642102570", "S000000006"],
+      ["671803460", "S000000008"],
+    ]);
+  });
+
+  it("실제 봉투처럼 섞인 글자", async () => {
+    const out = await matchLines(makeData(), [
+      "건강약국",
+      "서울특별시 종로구 종로 1",
+      "TEL 02-765-4321",
+      "김OO 님  조제일자 2026.10.10",
+      "아침 점심 저녁 식후 30분",
+      "에소메프라졸정 40mg 1일 1회 아침 식후",
+      "셀레콕시브캡슐200mg 아세트아미노펜서방정650mg",
+      "약제비 총액 12,300원 본인부담 3,700원",
+    ]);
+    expect(out.map((l) => l.candidates[0].item_seq)).toEqual(["S000000006", "S000000011", "S000000010"]);
+    expect(out.every((l) => l.insurance_code === null)).toBe(true);
   });
 });
