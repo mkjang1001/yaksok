@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2443a3" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <title>이용 안내 · 약속</title>
+    <style>
+      :root { --bg: #fff; --ink: #18212b; --ink-2: #2f3a45; --muted: #566372; --line: #d7dee6; --soft: #eef2f5; --accent: #2443a3; --accent-soft: #e6ebf8; --amber-soft: #fdf1dc; --amber-ink: #7a4800;
+        font-size: 21px; color-scheme: light; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; line-height: 1.7; word-break: keep-all; -webkit-text-size-adjust: 100%; }
+      .wrap { max-width: 640px; margin: 0 auto; padding: 0 max(1rem, env(safe-area-inset-right)) 2rem max(1rem, env(safe-area-inset-left)); }
+      header { position: sticky; top: 0; display: flex; align-items: center; min-height: 3.4rem; padding-top: env(safe-area-inset-top); background: var(--bg); border-bottom: 1px solid var(--line); }
+      .back { display: inline-flex; align-items: center; min-height: 2.6rem; padding: 0 0.4rem; color: var(--accent); font-weight: 700; font-size: 0.95rem; text-decoration: none; }
+      h1 { font-size: 1.35rem; line-height: 1.4; margin: 1.2rem 0 0.4rem; }
+      h2 { font-size: 1.05rem; margin: 1.6rem 0 0.4rem; padding-top: 0.8rem; border-top: 1px solid var(--line); }
+      p, li { font-size: 0.95rem; margin: 0.35rem 0; }
+      ul { padding-left: 1.2rem; margin: 0.3rem 0; }
+      .muted { color: var(--muted); font-size: 0.8rem; }
+      .summary { padding: 0.9rem 1rem; border-radius: 0.8rem; background: var(--accent-soft); }
+      .summary li { margin: 0.25rem 0; }
+      .todo { background: var(--amber-soft); color: var(--amber-ink); padding: 0 0.25rem; border-radius: 0.25rem; font-weight: 700; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 0.4rem 0; }
+      th, td { text-align: left; vertical-align: top; padding: 0.45rem 0.4rem; border-bottom: 1px solid var(--line); }
+      th { background: var(--soft); }
+      a { color: var(--accent); }
+      .btn { display: flex; align-items: center; justify-content: center; min-height: 3.3rem; margin-top: 1.6rem; border-radius: 0.8rem; background: var(--accent); color: #fff; font-weight: 700; font-size: 1.05rem; text-decoration: none; }
+      :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+      .warn { padding: 0.9rem 1rem; border-radius: 0.8rem; background: #fbe9ea; color: #8f1b22; border: 2px solid #b4232c; }
+      .warn p { margin: 0.2rem 0; }
+      .call { display: inline-block; font-size: 1.3rem; font-weight: 900; color: #b4232c; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header><a class="back" href="./">‹ 약속으로 돌아가기</a></header>
+
+      <h1>이용 안내</h1>
+      <p class="muted">시행일: <span class="todo">[2026년 ○월 ○일]</span> · 최종 수정: 2026년 10월 17일</p>
+
+      <div class="warn">
+        <p><b>몸이 많이 이상하면 바로 119에 전화하세요.</b></p>
+        <p>숨쉬기 힘들거나, 의식이 흐리거나, 약을 너무 많이 드셨으면 앱을 보지 말고 바로 전화하세요.</p>
+        <p><a class="call" href="tel:119">119 전화하기</a></p>
+      </div>
+
+      <h2>1. ‘약속’은 진단이나 처방이 아니에요</h2>
+      <ul>
+        <li>‘약속’은 공공 약품 정보를 바탕으로 <b>함께 드시는 약 중에 살펴볼 점이 있는지</b> 알려 드리는 도구예요.</li>
+        <li>의사의 진료, 약사의 복약 상담을 대신하지 않아요. 결과는 병원이나 약국에서 <b>물어볼 거리</b>로 써 주세요.</li>
+        <li>“확인할 것이 없어요”라고 나와도 안전하다는 뜻은 아니에요. 앱이 모르는 약이나 조합이 있을 수 있어요.</li>
+      </ul>
+
+      <h2>2. 약을 마음대로 끊거나 바꾸지 마세요</h2>
+      <ul>
+        <li>결과에 주의 표시가 나와도 <b>스스로 약을 끊거나, 양을 줄이거나, 바꾸지 마세요.</b> 갑자기 끊으면 더 위험한 약도 있어요.</li>
+        <li>점검 결과 화면을 인쇄하거나 보여 드리면서 의사·약사와 먼저 상의해 주세요.</li>
+      </ul>
+
+      <h2>3. 약 정보의 기준일과 한계</h2>
+      <ul>
+        <li>약 정보는 식품의약품안전처 등 공공 자료를 모아 만든 것이고, 화면에 <b>기준일</b>을 함께 보여 드려요. 기준일 뒤에 바뀐 내용은 들어 있지 않을 수 있어요.</li>
+        <li>모든 약, 한약, 건강기능식품, 영양제가 들어 있지는 않아요.</li>
+        <li>드시는 양, 콩팥·간 기능, 다른 병, 알레르기처럼 사람마다 다른 사정은 따지지 못해요.</li>
+        <li>사진·바코드로 읽은 약 이름이 틀릴 수 있어요. 넣기 전에 꼭 이름을 확인해 주세요.</li>
+        <li>인터넷이 끊겨도 이미 받아 둔 정보로 점검할 수 있지만, 그동안은 새 정보로 바뀌지 않아요.</li>
+      </ul>
+
+      <h2>4. 지금은 샘플 데이터 단계예요</h2>
+      <p>현재 앱에 들어 있는 약 정보는 <b>기능을 시험하기 위한 일부 샘플</b>이에요. 실제 약 전체가 들어 있지 않고, 점검 문구도 전문가 검토 전일 수 있어요. 실제 복약 판단에는 쓰지 마세요. <span class="todo">[전체 데이터·전문가 검토 완료 시 이 항목 수정]</span></p>
+
+      <h2>5. 비용과 책임</h2>
+      <ul>
+        <li>‘약속’은 무료이고, 광고가 없어요.</li>
+        <li>학생이 지도교사·보호자와 함께 만든 비영리 프로젝트로, 결과의 정확성을 보장하지 못해요. 앱 결과만 보고 내린 결정에 대해 책임지기 어려워요. <span class="todo">[책임 제한 문구 전문가 확인]</span></li>
+        <li>점검을 잘 하기 위해 앱이 예고 없이 바뀌거나 잠시 멈출 수 있어요.</li>
+      </ul>
+
+      <h2>6. 개인정보</h2>
+      <p>내 약 목록은 이 기기 안에만 저장돼요. 자세한 내용은 <a href="privacy.html">개인정보 처리방침</a>을 봐 주세요.</p>
+
+      <h2>7. 문의</h2>
+      <ul>
+        <li>운영자: <span class="todo">[운영자 이름]</span> · 지도교사: <span class="todo">[지도교사 이름, 학교]</span></li>
+        <li>문의: <span class="todo">[문의 이메일]</span></li>
+        <li>약에 대한 상담은 가까운 약국이나 다니시는 병원에 물어봐 주세요.</li>
+      </ul>
+
+      <p class="muted">이 문서는 초안이에요. 실제 서비스 전에 지도교사와 전문가의 확인을 받아 <span class="todo">[ ]</span> 표시를 채워야 해요.</p>
+
+      <a class="btn" href="./">약속으로 돌아가기</a>
+      <p class="muted" style="text-align:center"><a href="privacy.html">개인정보 처리방침 보기</a></p>
+    </div>
+  </body>
+</html>

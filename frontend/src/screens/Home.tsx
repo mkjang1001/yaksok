@@ -1,4 +1,5 @@
 import { HelperBanner, Icon, PillShape, Svg } from "../components/ui";
+import { dismissInstall, promptInstall, useInstallKind } from "../lib/install";
 import { medsKey, useStore } from "../store";
 
 /** S01 홈 */
@@ -44,6 +45,8 @@ export function Home() {
           </div>
         )}
 
+        <InstallCard />
+
         <div className="grow" />
 
         <div className="stack">
@@ -55,7 +58,35 @@ export function Home() {
           </a>
         </div>
         {!helper && <a className="link-center" href="#/helper">복지관 봉사자이신가요? 도우미 모드로 시작</a>}
+        <nav className="legal-links" aria-label="안내 문서">
+          <a href="privacy.html">개인정보 처리방침</a>
+          <a href="terms.html">이용 안내</a>
+        </nav>
       </main>
     </div>
+  );
+}
+
+/** 홈 화면에 앱 아이콘을 두도록 안내한다. 한 번 닫으면 다시 보이지 않는다 */
+function InstallCard() {
+  const kind = useInstallKind();
+  if (!kind) return null;
+  return (
+    <section className="card install-card" aria-label="홈 화면에 추가">
+      <span className="card-title">휴대폰 홈 화면에 두면 더 편해요</span>
+      {kind === "prompt" ? (
+        <>
+          <span className="muted-strong">앱처럼 바로 열 수 있고, 인터넷이 끊겨도 넣어 둔 약을 볼 수 있어요.</span>
+          <button type="button" className="btn btn-primary" onClick={() => promptInstall()}>홈 화면에 추가하기</button>
+        </>
+      ) : (
+        <ol className="install-steps">
+          <li>화면 아래(아이패드는 위)의 <b>공유</b> 버튼을 눌러 주세요.</li>
+          <li><b>홈 화면에 추가</b>를 눌러 주세요.</li>
+          <li>오른쪽 위 <b>추가</b>를 누르면 끝이에요.</li>
+        </ol>
+      )}
+      <button type="button" className="btn btn-ghost btn-sm" onClick={dismissInstall}>괜찮아요, 다시 보지 않기</button>
+    </section>
   );
 }
