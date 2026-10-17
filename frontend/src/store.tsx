@@ -26,6 +26,16 @@ export function medsKey(meds: Med[], profile: Profile) {
   return profile.ageBand + "|" + meds.map((m) => `${m.item_seq ?? m.name}@${m.received_from}`).join(",");
 }
 
+/**
+ * 목록 카드 둘째 줄. 쉬운 분류가 있으면 큰 글씨가 분류라 약 이름을, 없으면(실제 공공데이터) 큰 글씨가 이름이라 성분을 보여 준다.
+ * 품목코드가 없는 약(목록에 없는 약)은 null.
+ */
+export function medSubtitle(m: Med): string | null {
+  if (!m.item_seq) return null;
+  if (m.category) return m.name;
+  return m.ingredients.join(", ");
+}
+
 export function medFromDrug(d: Drug, source: Med["source"], receivedFrom: string): Med {
   return {
     id: crypto.randomUUID(),

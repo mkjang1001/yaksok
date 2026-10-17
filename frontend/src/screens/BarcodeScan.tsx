@@ -161,7 +161,7 @@ export function BarcodeScan() {
           <h2 className="h2">이 약이 맞나요?</h2>
           <div className="card row">
             <PillShape pill={found.pill} size={1.2} />
-            <div className="col"><b className="drug-name">{found.name}</b><span className="muted">{found.category}</span></div>
+            <div className="col"><b className="drug-name">{found.name}</b><span className="muted">{found.category || found.company}</span></div>
           </div>
           <PlacePicker value={place} onChange={setPlace} />
           <div className="grow" />

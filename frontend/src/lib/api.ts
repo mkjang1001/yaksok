@@ -5,7 +5,7 @@
 import { DataError, drugData } from "./data";
 import { idb } from "./idb";
 import { checkMeds } from "./rules";
-import { matchLines, rowToDrug, searchDrugs, type EnvelopeLine } from "./search";
+import { matchLines, rowToDrug, searchDrugsOutcome, type EnvelopeLine } from "./search";
 import type { CheckResult, Drug, Med, Profile } from "../types";
 
 export class ApiError extends Error {
@@ -33,7 +33,11 @@ const wrap = async <T>(fn: () => Promise<T>): Promise<T> => {
 export const api = {
   ocrAvailable: !!OCR_URL,
 
-  search: (q: string) => wrap(async () => (await searchDrugs(drugData, q)).map((h) => rowToDrug(h.row))),
+  /** needMore: 이 두 글자로 시작하는 약이 너무 많아 한 글자 더 써야 찾을 수 있음 */
+  search: (q: string) => wrap(async () => {
+    const { hits, needMore } = await searchDrugsOutcome(drugData, q);
+    return { results: hits.map((h) => rowToDrug(h.row)), needMore };
+  }),
 
   /** 목록에 넣을 때 그 약 하나의 상세(성분 포함)만 받는다 */
   drug: (itemSeq: string) => wrap(async () => {

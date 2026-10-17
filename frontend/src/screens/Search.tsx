@@ -13,6 +13,7 @@ export function Search() {
   const { addMeds, meds } = useStore();
   const [q, setQ] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [needMore, setNeedMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<Drug | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
@@ -24,12 +25,13 @@ export function Search() {
     const term = q.trim();
     if (!term) {
       setResults([]);
+      setNeedMore(false);
       return;
     }
     let cancelled = false;
     const t = setTimeout(() => {
       api.search(term).then(
-        (r) => { if (!cancelled) { setResults(r); setError(null); } },
+        (r) => { if (!cancelled) { setResults(r.results); setNeedMore(r.needMore); setError(null); } },
         (e) => { if (!cancelled) setError(e.message); },
       );
     }, 250);
@@ -59,7 +61,7 @@ export function Search() {
             <PillShape pill={picked?.pill ?? null} size={1.2} />
             <div className="col">
               <b className="drug-name">{name}</b>
-              <span className="muted">{picked ? picked.category : "목록에 없는 약 · 점검하지 못해요"}</span>
+              <span className="muted">{picked ? picked.category || picked.company : "목록에 없는 약 · 점검하지 못해요"}</span>
             </div>
           </div>
           <PlacePicker value={place} onChange={setPlace} />
@@ -93,14 +95,17 @@ export function Search() {
           <span className="muted">두 글자 이상 써 주세요. ㅇㅅㅁ처럼 첫 글자만 써도 찾아요.</span>
         </div>
         {error && <p className="error" role="alert">{error}</p>}
-        {q.trim() && !tooShort && <span className="muted">찾은 약 {results.length}개</span>}
+        {q.trim() && !tooShort && needMore && (
+          <p className="warn-text" role="status">이 글자로 시작하는 약이 많아요. 한 글자 더 써 주세요.</p>
+        )}
+        {q.trim() && !tooShort && !(needMore && results.length === 0) && <span className="muted">찾은 약 {results.length}개</span>}
         <div className="stack">
           {results.map((d) => (
             <div key={d.item_seq} className="card row">
               <PillShape pill={d.pill} />
               <div className="col">
                 <b className="drug-name">{d.name}</b>
-                <span className="muted">{d.category}{d.company ? ` · ${d.company}` : ""}</span>
+                <span className="muted">{[d.category, d.company].filter(Boolean).join(" · ")}</span>
               </div>
               {have.has(d.item_seq) ? (
                 <span className="tag">넣음</span>

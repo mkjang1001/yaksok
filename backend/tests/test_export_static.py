@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app import export_static
+from app import export_fixture, export_static
 from app.db import SAMPLE_DIR, connect, import_dir, init_schema
 from app.export_static import bucket, export, fnv1a, search_key, split_search_shards
 
@@ -137,3 +137,20 @@ def test_sample_export_matches_committed_frontend_data(conn, tmp_path):
             assert {k: new_meta[key][k] for k in value} == value, key
         else:
             assert new_meta[key] == value, key
+
+
+@pytest.mark.parametrize("name,split", [("sample", None), ("sample-split", export_fixture.SPLIT_BYTES)])
+def test_frontend_fixture_is_up_to_date(tmp_path, name, split):
+    """웹앱 테스트 픽스처(frontend/src/lib/__fixtures__)가 지금 내보내기와 같아야 한다.
+    다르면 `python -m app.export_fixture` 로 다시 만들어 커밋한다."""
+    committed = export_fixture.FIXTURE_DIR / name
+    if not committed.exists():
+        pytest.skip("frontend 픽스처 없음")
+    out = tmp_path / name
+    export_fixture.export_sample(out, split)
+    rel = lambda root: {p.relative_to(root).as_posix() for p in root.rglob("*.json")} - {"meta.json"}
+    assert rel(out) == rel(committed)
+    for r in rel(out):
+        assert (out / r).read_bytes() == (committed / r).read_bytes(), r
+    strip = lambda p: {k: v for k, v in json.loads(p.read_text(encoding="utf-8")).items() if k not in ("generated_at", "counts")}
+    assert strip(out / "meta.json") == strip(committed / "meta.json")

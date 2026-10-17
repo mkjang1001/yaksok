@@ -41,7 +41,7 @@ export function Print() {
             <tbody>
               {meds.map((m) => (
                 <tr key={m.id}>
-                  <td><b>{m.category ?? "-"}</b></td>
+                  <td><b>{m.category || "-"}</b></td>
                   <td>{m.name}</td>
                   <td>{m.ingredients.join(", ") || "-"}</td>
                   <td>{m.received_from || "-"}</td>

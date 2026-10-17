@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Header, HelperBanner, Icon, PillShape, Svg } from "../components/ui";
 import { PlacePicker } from "../components/PlacePicker";
-import { useStore } from "../store";
+import { medSubtitle, useStore } from "../store";
 import type { Med } from "../types";
 
 /** S06 내 약 목록 — 받은 곳별로 묶어서 보여 준다 */
@@ -46,8 +46,8 @@ export function MyList() {
                 <div className="row">
                   <PillShape pill={m.pill} />
                   <div className="col">
-                    <b className="drug-name">{m.category ?? m.name}</b>
-                    <span className="muted">{m.category ? m.name : "목록에 없는 약 · 점검하지 못해요"}</span>
+                    <b className="drug-name">{m.category || m.name}</b>
+                    <span className="muted">{medSubtitle(m) ?? "목록에 없는 약 · 점검하지 못해요"}</span>
                   </div>
                 </div>
                 {editing === m.id ? (

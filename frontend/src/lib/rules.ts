@@ -24,7 +24,7 @@ export interface CheckItem { item_seq: string | null; display_name?: string; rec
 interface Med { index: number; itemSeq: string; place: string; product: Drug; label: string }
 
 function labelOf(p: Drug, place: string): string {
-  const category = p.category ?? p.name;
+  const category = p.category || p.name; // 실제 공공데이터에는 쉬운 분류가 없어 약 이름을 쓴다
   if (!place) return category;
   if (PHARMACY_PLACES.includes(place) || place.includes("약국에서")) return `약국에서 산 ${category}`;
   return `${place} ${category}`;

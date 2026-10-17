@@ -88,7 +88,7 @@ function LineCard({ line, chosen, rejected, onChoose, onReject }: {
           <PillShape pill={top.pill} size={1.1} />
           <div className="col">
             <b className="drug-name">{top.name}</b>
-            <span className="muted">{top.category} · 봉투 글자 "{line.line}"</span>
+            <span className="muted">{[top.category, `봉투 글자 "${line.line}"`].filter(Boolean).join(" · ")}</span>
           </div>
         </div>
         <div className="row-2">
@@ -106,9 +106,9 @@ function LineCard({ line, chosen, rejected, onChoose, onReject }: {
       <span className="muted">봉투 글자 "{line.line}"</span>
       {line.candidates.map((c) => (
         <button key={c.item_seq} type="button" className={`option ${chosen === c.item_seq ? "on" : ""}`}
-          aria-pressed={chosen === c.item_seq} aria-label={`${c.name} ${c.category ?? ""}`} onClick={() => onChoose(c.item_seq)}>
+          aria-pressed={chosen === c.item_seq} aria-label={[c.name, c.category || c.company].filter(Boolean).join(" ")} onClick={() => onChoose(c.item_seq)}>
           <PillShape pill={c.pill} size={0.8} />
-          <span className="col"><b>{c.name}</b><span className="muted">{c.category}</span></span>
+          <span className="col"><b>{c.name}</b><span className="muted">{c.category || c.company}</span></span>
         </button>
       ))}
       <a className="link" href="#/search">없어요, 이름으로 찾을게요</a>

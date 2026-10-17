@@ -48,14 +48,41 @@ function scoreRows(query: string, rows: SearchRow[]): SearchHit[] {
 const byScore = (a: SearchHit, b: SearchHit) =>
   b.score - a.score || a.row[1].length - b.row[1].length || a.row[1].localeCompare(b.row[1]);
 
-/** 검색어 앞 두 글자의 초성 조각만 받아서 찾는다. 두 글자 미만이면 찾지 않는다. */
-export async function searchDrugs(data: DrugData, query: string, limit = 10): Promise<SearchHit[]> {
+/**
+ * 이 글자(정규화된 이름·검색어)로 받을 검색 조각.
+ * 보통은 앞 두 글자 초성 조각 하나. 그 키가 커서 나뉘었으면(meta.split_search_keys)
+ * 세 글자 초성 조각 + 두 글자 파일(세 글자 키를 못 만드는 짧은 이름)을 받고,
+ * 두 글자뿐이면 두 글자 파일만 받고 needMore 로 "한 글자 더" 안내를 하게 한다.
+ */
+export async function searchKeysFor(data: DrugData, norm: string): Promise<{ keys: string[]; needMore: boolean }> {
+  const key = searchKey(norm);
+  if (!key) return { keys: [], needMore: false };
+  const m = await data.meta();
+  if (!m.split_search_keys?.includes(key)) return { keys: [key], needMore: false };
+  const sub = searchKey(norm, 3);
+  if (!sub) return { keys: [key], needMore: true };
+  const children = m.search_children?.[key];
+  // 세 글자 키 조각이 없으면 그 글자로 시작하는 약이 없는 것: 받지 않는다
+  return { keys: !children || children.includes(sub) ? [sub, key] : [key], needMore: false };
+}
+
+async function rowsFor(data: DrugData, keys: string[]): Promise<SearchRow[]> {
+  return (await Promise.all(keys.map((k) => data.searchRows(k)))).flat();
+}
+
+export interface SearchOutcome { hits: SearchHit[]; needMore: boolean }
+
+/** 검색어 앞 두(나뉜 키면 세) 글자의 초성 조각만 받아서 찾는다. 두 글자 미만이면 찾지 않는다. */
+export async function searchDrugsOutcome(data: DrugData, query: string, limit = 10): Promise<SearchOutcome> {
   const q = normalize(query);
-  if ([...q].length < MIN_QUERY_CHARS) return [];
-  const key = searchKey(q);
-  if (!key) return [];
-  const rows = await data.searchRows(key);
-  return scoreRows(q, rows).sort(byScore).slice(0, limit);
+  if ([...q].length < MIN_QUERY_CHARS) return { hits: [], needMore: false };
+  const { keys, needMore } = await searchKeysFor(data, q);
+  const rows = await rowsFor(data, keys);
+  return { hits: scoreRows(q, rows).sort(byScore).slice(0, limit), needMore };
+}
+
+export async function searchDrugs(data: DrugData, query: string, limit = 10): Promise<SearchHit[]> {
+  return (await searchDrugsOutcome(data, query, limit)).hits;
 }
 
 export function rowToDrug(row: SearchRow): DrugSummary {
@@ -178,7 +205,10 @@ export interface EnvelopeLine extends OcrLine {
   insurance_code: string | null;
 }
 
-/** 봉투 글자 → 줄마다 약 후보 Top-3. 줄 앞 두 글자의 검색 조각만 받는다. */
+/**
+ * 봉투 글자 → 줄마다 약 후보 Top-3. 줄 앞 두(나뉜 키면 세) 글자의 검색 조각만 받는다.
+ * 처방전 줄에 보험코드가 있고 보험코드 조각에서 품목을 찾으면 그 약을 확실한 후보(점수 1)로 맨 앞에 둔다.
+ */
 export async function matchLines(data: DrugData, lines: string[], top = 3): Promise<EnvelopeLine[]> {
   const prepared = lines
     .flatMap((raw) => raw.split(/\r?\n/))
@@ -189,16 +219,27 @@ export async function matchLines(data: DrugData, lines: string[], top = 3): Prom
     .filter((l) => !l.noise);
 
   const results = await Promise.all(prepared.map(async (l): Promise<EnvelopeLine | null> => {
-    const key = searchKey(l.norm);
-    if (!key) return null;
-    const rows = await data.searchRows(key);
-    const hits = scoreRows(l.text, rows)
+    const [{ keys }, codeSeq] = await Promise.all([
+      searchKeysFor(data, l.norm),
+      l.insurance_code ? data.insuranceSeq(l.insurance_code) : Promise.resolve(null),
+    ]);
+    const rows = await rowsFor(data, keys);
+    let hits = scoreRows(l.text, rows)
       .map((h) => ({ ...h, score: Math.min(1, h.score + (l.dose && normalize(h.row[1]).includes(normalize(l.dose)) ? 0.05 : 0)) }))
       .filter((h) => h.score >= MIN_MATCH)
-      .sort(byScore)
-      .slice(0, top);
+      .sort(byScore);
+    if (codeSeq) {
+      // 보험코드로 찾은 약: 이름 후보에 있으면 그 줄을 쓰고, 없을 때만 품목 상세를 받아 후보 줄을 만든다
+      let row = hits.find((h) => h.row[0] === codeSeq)?.row ?? null;
+      if (!row) {
+        const d = await data.drug(codeSeq);
+        if (d) row = [d.item_seq, d.name, d.category, d.company, d.pill.shape, d.pill.color];
+      }
+      if (row) hits = [{ score: 1, row }, ...hits.filter((h) => h.row[0] !== codeSeq)];
+    }
+    hits = hits.slice(0, top);
     if (hits.length === 0) return null;
-    // 후보는 검색 목록 정보만으로 보여 주고, 상세(성분)는 사용자가 "맞아요"를 눌러 목록에 넣을 때 받는다
+    // 후보는 검색 목록 정보만으로 보여 주고 (보험코드로만 찾은 약은 예외), 상세(성분)는 사용자가 "맞아요"를 눌러 목록에 넣을 때 받는다
     return {
       line: l.raw,
       dose: l.dose,

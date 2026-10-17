@@ -9,7 +9,12 @@ export interface Meta {
   data_date: string | null;
   rule_version: string;
   dataset: string | null;
-  shards: { drug: number; barcode: number; rule: number; search_key_chars: number };
+  /** insurance 는 보험코드 조각이 생긴 뒤의 데이터에만 있다 */
+  shards: { drug: number; barcode: number; rule: number; insurance?: number; search_key_chars: number };
+  /** 너무 커서 세 글자 초성 조각으로 나뉜 두 글자 키. 두 글자 파일에는 짧은 이름만 남는다. */
+  split_search_keys?: string[];
+  /** 나뉜 두 글자 키 → 세 글자 키 목록 */
+  search_children?: Record<string, string[]>;
 }
 
 export interface RuleEvidence { detail: string | null; source: string | null; data_date: string | null }
@@ -124,6 +129,19 @@ export class DrugData {
     const m = await this.meta();
     const shard = await this.get<Record<string, string>>(`barcode/${bucket(code, m.shards.barcode)}.json`);
     const seq = shard?.[code];
+    return seq ? this.drug(seq) : null;
+  }
+
+  /** 처방전의 9자리 보험(EDI) 코드 → 품목코드. 보험코드 조각이 없는 예전 데이터면 null. */
+  async insuranceSeq(code: string): Promise<string | null> {
+    const m = await this.meta();
+    if (!m.shards.insurance) return null;
+    const shard = await this.get<Record<string, string>>(`insurance/${bucket(code, m.shards.insurance)}.json`);
+    return shard?.[code] ?? null;
+  }
+
+  async insurance(code: string): Promise<Drug | null> {
+    const seq = await this.insuranceSeq(code);
     return seq ? this.drug(seq) : null;
   }
 

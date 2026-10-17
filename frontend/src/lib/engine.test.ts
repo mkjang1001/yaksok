@@ -1,25 +1,36 @@
 /**
  * 브라우저 점검 엔진 테스트 — backend/tests/test_rules.py, test_search_ocr.py 와 같은 기대값.
- * public/data 의 샘플 조각 파일을 그대로 읽는다 (먼저 `python -m app.export_static` 실행).
+ * 샘플 조각 픽스처(__fixtures__)를 읽는다 — public/data 는 실제 데이터로 바뀌므로 쓰지 않는다.
+ *   sample        샘플 DB 내보내기
+ *   sample-split  검색 조각을 억지로 세 글자 키로 나눈 내보내기 (실제 데이터처럼 큰 키가 나뉜 경우)
+ * 다시 만들기: backend 에서 `python -m app.export_fixture`
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DrugData, bucket, fnv1a, searchKey } from "./data";
+import { DrugData, bucket, fnv1a, searchKey, type Loader, type Meta } from "./data";
 import { chosung, josa, normalize } from "./hangul";
 import { checkMeds, type CheckItem } from "./rules";
 import {
-  extractInsuranceCode, extractInsuranceCodes, isNoiseLine, matchLines, prepareLine, searchDrugs, splitDose, splitDrugs,
+  extractInsuranceCode, extractInsuranceCodes, isNoiseLine, matchLines, prepareLine, searchDrugs, searchDrugsOutcome,
+  splitDose, splitDrugs,
 } from "./search";
 
-const DATA_DIR = join(__dirname, "..", "..", "public", "data");
+const FIXTURE_DIR = join(__dirname, "__fixtures__");
+const DATASETS = ["sample", "sample-split"] as const;
+type Dataset = (typeof DATASETS)[number];
 
-function makeData(log?: string[]) {
-  return new DrugData(async (path) => {
+/** 픽스처 파일 로더. 없는 파일은 null (빈 해시 조각은 픽스처에서 지워 두었다). */
+function fileLoader(ds: Dataset, log?: string[]): Loader {
+  return async (path) => {
     log?.push(path);
-    const file = join(DATA_DIR, path);
+    const file = join(FIXTURE_DIR, ds, path);
     return existsSync(file) ? JSON.parse(readFileSync(file, "utf-8")) : null;
-  });
+  };
+}
+
+function makeData(ds: Dataset, log?: string[]) {
+  return new DrugData(fileLoader(ds, log));
 }
 
 const DEMO: CheckItem[] = [
@@ -62,9 +73,9 @@ describe("한글", () => {
   });
 });
 
-describe("점검 엔진", () => {
+describe.each(DATASETS)("점검 엔진 (%s)", (ds) => {
   it("목업 예시", async () => {
-    const r = await checkMeds(makeData(), "65+", DEMO);
+    const r = await checkMeds(makeData(ds), "65+", DEMO);
     expect(rulesOf(r)).toEqual(["R2", "R3", "R4", "R5"]);
     expect(r.counts).toEqual({ red: 1, amber: 2, grey: 1 });
     expect(r.med_count).toBe(9);
@@ -78,66 +89,66 @@ describe("점검 엔진", () => {
 
   it("등록한 약의 조각만 받는다", async () => {
     const log: string[] = [];
-    await checkMeds(makeData(log), "65+", [{ item_seq: "S000000012" }, { item_seq: "S000000004" }]);
+    await checkMeds(makeData(ds, log), "65+", [{ item_seq: "S000000012" }, { item_seq: "S000000004" }]);
     expect(log.some((p) => p.startsWith("search/"))).toBe(false);
     expect(log.filter((p) => p.startsWith("drug/")).length).toBeLessThanOrEqual(2);
     expect(log.filter((p) => p.startsWith("rule/")).length).toBeLessThanOrEqual(2);
   });
 
   it("병용금기", async () => {
-    const r = await checkMeds(makeData(), "65+", [
+    const r = await checkMeds(makeData(ds), "65+", [
       { item_seq: "S000000012", received_from: "피부과" }, { item_seq: "S000000004", received_from: "OO내과" }]);
     expect(rulesOf(r)).toEqual(["R1"]);
     expect(r.findings[0].ingredients).toEqual(["이트라코나졸", "심바스타틴"]);
   });
 
   it("같은 곳 효능군 중복은 참고", async () => {
-    const r = await checkMeds(makeData(), "under65", [
+    const r = await checkMeds(makeData(ds), "under65", [
       { item_seq: "S000000005", received_from: "OO내과" }, { item_seq: "S000000008", received_from: "OO내과" }]);
     expect(rulesOf(r)).toEqual(["R3_SAME"]);
     expect(r.findings[0].body).toContain("에소메프라졸정 20mg과 라베프라졸정 10mg은");
   });
 
   it("받은 곳 모르면 물어보기", async () => {
-    const r = await checkMeds(makeData(), "under65", [{ item_seq: "S000000011" }, { item_seq: "S000000103" }]);
+    const r = await checkMeds(makeData(ds), "under65", [{ item_seq: "S000000011" }, { item_seq: "S000000103" }]);
     expect(rulesOf(r)).toEqual(["R3"]);
   });
 
   it("같은 성분은 효능군 중복으로 또 알리지 않음", async () => {
-    const r = await checkMeds(makeData(), "under65", [
+    const r = await checkMeds(makeData(ds), "under65", [
       { item_seq: "S000000005", received_from: "OO내과" }, { item_seq: "S000000007", received_from: "정형외과" }]);
     expect(rulesOf(r)).toEqual(["R2"]);
   });
 
   it("노인주의는 65세 이상만", async () => {
     const items = [{ item_seq: "S000000014", received_from: "정신건강의학과" }];
-    expect(rulesOf(await checkMeds(makeData(), "65+", items))).toEqual(["R4"]);
-    expect(rulesOf(await checkMeds(makeData(), "under65", items))).toEqual([]);
+    expect(rulesOf(await checkMeds(makeData(ds), "65+", items))).toEqual(["R4"]);
+    expect(rulesOf(await checkMeds(makeData(ds), "under65", items))).toEqual([]);
   });
 
   it("같은 약은 한 번만", async () => {
-    const r = await checkMeds(makeData(), "under65", [{ item_seq: "S000000001" }, { item_seq: "S000000001" }]);
+    const r = await checkMeds(makeData(ds), "under65", [{ item_seq: "S000000001" }, { item_seq: "S000000001" }]);
     expect(r.med_count).toBe(1);
   });
 
   it("다제약물 기준", async () => {
     const four = Array.from({ length: 4 }, (_, i) => ({ item_seq: null, display_name: `약${i}` }));
-    expect(rulesOf(await checkMeds(makeData(), "65+", four))).toEqual([]);
+    expect(rulesOf(await checkMeds(makeData(ds), "65+", four))).toEqual([]);
     const ten = Array.from({ length: 10 }, (_, i) => ({ item_seq: null, display_name: `약${i}` }));
-    const r = await checkMeds(makeData(), "65+", ten);
+    const r = await checkMeds(makeData(ds), "65+", ten);
     expect(rulesOf(r)).toEqual(["R5_PROGRAM"]);
     expect(r.findings[0].title).toBe("약을 10개 드시고 계세요");
   });
 
   it("엄격 모드는 감수 전 문구를 숨김", async () => {
-    const r = await checkMeds(makeData(), "65+", DEMO, { strictApproval: true });
+    const r = await checkMeds(makeData(ds), "65+", DEMO, { strictApproval: true });
     expect(r.findings.every((f) => f.title === "확인이 필요한 항목이 있어요")).toBe(true);
   });
 });
 
-describe("검색과 봉투 글자", () => {
+describe.each(DATASETS)("검색과 봉투 글자 (%s)", (ds) => {
   it("앞부분·초성·오타", async () => {
-    const d = makeData();
+    const d = makeData(ds);
     expect((await searchDrugs(d, "에소메"))[0].row[1]).toMatch(/^에소메프라졸/);
     expect((await searchDrugs(d, "ㅇㅅㅁ")).map((h) => h.row[0])).toContain("S000000005");
     expect((await searchDrugs(d, "에소메프라줄"))[0].row[1]).toMatch(/^에소메프라졸/);
@@ -145,10 +156,13 @@ describe("검색과 봉투 글자", () => {
     expect(await searchDrugs(d, "에")).toEqual([]);
   });
 
-  it("검색은 그 초성 조각 하나만 받는다", async () => {
+  it("검색은 그 초성 조각만 받는다", async () => {
     const log: string[] = [];
-    await searchDrugs(makeData(log), "에소메");
-    expect(log).toEqual(["search/3147-3145.json"]);
+    await searchDrugs(makeData(ds, log), "에소메");
+    expect(log.filter((p) => p.startsWith("search/"))).toEqual(ds === "sample"
+      ? ["search/3147-3145.json"]
+      : ["search/3147-3145-3141.json", "search/3147-3145.json"]); // 세 글자 조각 + 짧은 이름만 남은 두 글자 파일
+    expect(log.some((p) => p.startsWith("drug/"))).toBe(false);
   });
 
   it("함량 분리", () => {
@@ -157,7 +171,7 @@ describe("검색과 봉투 글자", () => {
   });
 
   it("함량이 맞는 후보를 먼저, 잡음 줄은 건너뜀", async () => {
-    const out = await matchLines(makeData(), [
+    const out = await matchLines(makeData(ds), [
       "OO약국 조제일자 2026.10.10",
       "에소메프라졸정 40mg 1일 1회",
       "아침 식후 30분 복용하세요 총 30일분",
@@ -168,12 +182,12 @@ describe("검색과 봉투 글자", () => {
 
   it("봉투 후보를 보여 줄 때는 품목 상세를 받지 않는다", async () => {
     const log: string[] = [];
-    await matchLines(makeData(log), ["에소메프라졸정 40mg", "라베프라졸정 10mg"]);
-    expect(log.every((p) => p.startsWith("search/"))).toBe(true);
+    await matchLines(makeData(ds, log), ["에소메프라졸정 40mg", "라베프라졸정 10mg"]);
+    expect(log.some((p) => p.startsWith("drug/"))).toBe(false);
   });
 });
 
-describe("봉투 줄 정리", () => {
+describe.each(DATASETS)("봉투 줄 정리 (%s)", (ds) => {
   it("약국명·전화·주소·날짜·금액 줄은 버린다", () => {
     for (const line of [
       "행복약국", "OO온누리약국 약사 홍길동", "☎ 02-123-4567", "TEL 031)123-4567", "전화 010 1234 5678",
@@ -211,7 +225,7 @@ describe("봉투 줄 정리", () => {
   });
 
   it("붙은 두 약을 각각 찾는다", async () => {
-    const out = await matchLines(makeData(), ["에소메프라졸정40mg 라베프라졸정10mg", "암로디핀정 5mg, 메트포르민정 500mg"]);
+    const out = await matchLines(makeData(ds), ["에소메프라졸정40mg 라베프라졸정10mg", "암로디핀정 5mg, 메트포르민정 500mg"]);
     expect(out.map((l) => l.candidates[0].item_seq)).toEqual(["S000000006", "S000000008", "S000000001", "S000000002"]);
   });
 
@@ -227,7 +241,7 @@ describe("봉투 줄 정리", () => {
   });
 
   it("처방전 줄: 코드는 insurance_code로, 이름은 그대로 찾는다", async () => {
-    const out = await matchLines(makeData(), [
+    const out = await matchLines(makeData(ds), [
       "OO내과의원 처방전",
       "1 642102570 에소메프라졸정 40mg 1 1 30",
       "2 671803460 라베프라졸정10mg 1.00 2 30",
@@ -240,7 +254,7 @@ describe("봉투 줄 정리", () => {
   });
 
   it("실제 봉투처럼 섞인 글자", async () => {
-    const out = await matchLines(makeData(), [
+    const out = await matchLines(makeData(ds), [
       "건강약국",
       "서울특별시 종로구 종로 1",
       "TEL 02-765-4321",
@@ -252,5 +266,79 @@ describe("봉투 줄 정리", () => {
     ]);
     expect(out.map((l) => l.candidates[0].item_seq)).toEqual(["S000000006", "S000000011", "S000000010"]);
     expect(out.every((l) => l.insurance_code === null)).toBe(true);
+  });
+});
+
+describe("나뉜 검색 키", () => {
+  it("나뉜 키를 두 글자로만 찾으면 한 글자 더 써 달라고 한다", async () => {
+    const split = await searchDrugsOutcome(makeData("sample-split"), "에소");
+    expect(split.needMore).toBe(true);
+    expect(split.hits).toEqual([]); // 두 글자 파일에는 짧은 이름만 (샘플에는 없음)
+    expect((await searchDrugsOutcome(makeData("sample-split"), "ㅇㅅ")).needMore).toBe(true);
+    const plain = await searchDrugsOutcome(makeData("sample"), "에소");
+    expect(plain.needMore).toBe(false);
+    expect(plain.hits.length).toBeGreaterThan(0);
+  });
+
+  it("나뉘지 않은 키는 두 글자로도 찾는다", async () => {
+    const r = await searchDrugsOutcome(makeData("sample-split"), "암로");
+    expect(r.needMore).toBe(false);
+    expect(r.hits[0].row[1]).toMatch(/^암로디핀/);
+  });
+
+  it("세 글자 조각이 없으면 받지 않는다", async () => {
+    const log: string[] = [];
+    expect(await searchDrugs(makeData("sample-split", log), "에소라")).toEqual([]);
+    expect(log.filter((p) => p.startsWith("search/"))).toEqual(["search/3147-3145.json"]);
+  });
+
+  it("세 글자 초성 검색", async () => {
+    expect((await searchDrugs(makeData("sample-split"), "ㅇㅅㅁ")).map((h) => h.row[0])).toContain("S000000005");
+  });
+});
+
+describe("보험코드", () => {
+  /** 샘플에는 보험코드가 없어서, 픽스처 위에 보험코드 조각 하나를 얹는다 */
+  function withInsurance(code: string, seq: string, meta?: (m: Meta) => Meta, log?: string[]) {
+    const base = fileLoader("sample", log);
+    return new DrugData(async (path) => {
+      if (path === "meta.json") {
+        const m = (await base(path)) as Meta;
+        return meta ? meta(m) : m;
+      }
+      if (path === `insurance/${bucket(code, 256)}.json`) {
+        log?.push(path);
+        return { [code]: seq };
+      }
+      return base(path);
+    });
+  }
+
+  it("보험코드로 품목을 찾는다", async () => {
+    const d = withInsurance("642102570", "S000000006");
+    expect((await d.insurance("642102570"))?.item_seq).toBe("S000000006");
+    expect(await d.insurance("600000000")).toBeNull();
+  });
+
+  it("예전 데이터(보험코드 조각 없음)면 찾지 않는다", async () => {
+    const log: string[] = [];
+    const d = withInsurance("642102570", "S000000006",
+      (m) => ({ ...m, shards: { ...m.shards, insurance: undefined } }), log);
+    expect(await d.insurance("642102570")).toBeNull();
+    expect(log.some((p) => p.startsWith("insurance/"))).toBe(false);
+  });
+
+  it("처방전 줄의 보험코드 품목을 맨 앞 확실한 후보로", async () => {
+    // 이름은 40mg 이지만 보험코드는 20mg 품목을 가리킴 → 코드가 이긴다
+    const d = withInsurance("642102570", "S000000005");
+    const out = await matchLines(d, ["1 642102570 에소메프라졸정 40mg 1 1 30"]);
+    expect(out[0].candidates[0]).toMatchObject({ item_seq: "S000000005", score: 1 });
+    expect(out[0].candidates.filter((c) => c.item_seq === "S000000005")).toHaveLength(1);
+  });
+
+  it("이름 후보에 없는 보험코드 품목은 상세를 받아 후보로 만든다", async () => {
+    const d = withInsurance("642102570", "S000000012");
+    const out = await matchLines(d, ["1 642102570 에소메프라졸정 40mg 1 1 30"]);
+    expect(out[0].candidates[0]).toMatchObject({ item_seq: "S000000012", score: 1 });
   });
 });

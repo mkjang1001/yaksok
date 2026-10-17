@@ -3,7 +3,7 @@ import { Disclaimer, Header, PillShape, SampleNotice, SevChip, SpeakButton } fro
 import { api } from "../lib/api";
 import { drugData } from "../lib/data";
 import { decodeShare, isLocked, isValidPin, ShareError, type SharePayload } from "../lib/share";
-import { medFromDrug, useStore } from "../store";
+import { medFromDrug, medSubtitle, useStore } from "../store";
 import type { CheckResult, Med } from "../types";
 
 const AGE_LABEL = { "65+": "65세 이상", under65: "65세 미만" } as const;
@@ -185,8 +185,8 @@ function SharedResult({ payload, meds, result, header }: { payload: SharePayload
               <div className="row">
                 <PillShape pill={m.pill} />
                 <div className="col">
-                  <b className="drug-name">{m.category ?? m.name}</b>
-                  <span className="muted">{m.category ? m.name : "목록에 없는 약"} · {m.received_from || "받은 곳 모름"}</span>
+                  <b className="drug-name">{m.category || m.name}</b>
+                  <span className="muted">{[medSubtitle(m) ?? "목록에 없는 약", m.received_from || "받은 곳 모름"].filter(Boolean).join(" · ")}</span>
                 </div>
               </div>
             </div>

@@ -118,7 +118,11 @@ python -m app.validate db [--db 파일] [--previous-meta meta.json] [--export-di
   ```
 - 샘플 데이터는 어떤 조각도 200KB를 넘지 않아 결과가 예전과 같습니다 (`tests/test_export_static.py`가 커밋된 `frontend/public/data`와 바이트 단위로 비교).
 
-## 프런트에 필요한 변경 (이 작업에서는 frontend/ 를 고치지 않음)
+## 프런트에 필요한 변경
+
+> 아래 1~4는 `feature/real-data-frontend`에서 반영했습니다. 웹앱 테스트는 `frontend/src/lib/__fixtures__/`
+> (`sample`, 검색 조각을 억지로 나눈 `sample-split`)를 읽습니다. 샘플 CSV·문구·내보내기 방식을 바꾸면
+> `python -m app.export_fixture`로 다시 만들어 커밋하세요 (`tests/test_export_static.py`가 커밋된 픽스처와 비교).
 
 1. **[실제 데이터 전 필수] 테스트를 샘플 픽스처로** — `src/lib/engine.test.ts`가 `public/data`를 읽고 샘플 품목코드(S0000000…)를 기대합니다. 실제 데이터가 커밋되면 이 테스트가 깨져 `deploy.yml`이 멈춥니다. 샘플 조각을 테스트 전용 폴더(예: `src/lib/__fixtures__/data`, `python -m app.export_static`으로 생성)에 두고 그걸 읽게 바꿔야 합니다.
 2. **나뉜 검색 키** — `Meta`에 `split_search_keys?: string[]`, `search_children?: Record<string, string[]>`를 추가하고, `searchKey(q)`가 나뉜 키이면
