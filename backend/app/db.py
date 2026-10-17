@@ -5,6 +5,7 @@
 """
 import csv
 import json
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,8 +45,18 @@ def _blank_to_none(value):
     return value if value not in ("", None) else None
 
 
+def split_codes(value: str | None) -> list[str]:
+    """'a;b, c' → ['a', 'b', 'c']. 공공데이터의 여러 값 칸(보험코드, 바코드)에 쓴다."""
+    return [c.strip() for c in re.split(r"[;,]", value or "") if c.strip()]
+
+
 def import_dir(conn: sqlite3.Connection, directory: Path, is_sample: bool, replace: bool = True) -> dict:
-    """products / ingredients / product_ingredients / barcodes / dur_rules CSV를 넣는다."""
+    """products / ingredients / product_ingredients / barcodes / dur_rules CSV를 넣는다.
+
+    products.csv 의 insurance_codes(선택, 세미콜론 구분)는 drug_insurance 로 들어간다.
+    없는 품목·성분을 가리키는 줄은 넣지 않고 건너뛴 개수를 돌려준다 (실제 데이터는 서비스마다
+    수록 범위가 달라 어긋나는 줄이 있다). 건너뛴 비율은 app.validate 가 검사한다.
+    """
     directory = Path(directory)
     products = _read_csv(directory / "products.csv")
     ingredients = _read_csv(directory / "ingredients.csv")
@@ -54,9 +65,20 @@ def import_dir(conn: sqlite3.Connection, directory: Path, is_sample: bool, repla
     rules = _read_csv(directory / "dur_rules.csv")
     flag = 1 if is_sample else 0
 
+    product_seqs = {r["item_seq"] for r in products}
+    ingr_codes = {r["ingr_code"] for r in ingredients}
+    insurance = [(code, r["item_seq"]) for r in products for code in split_codes(r.get("insurance_codes"))]
+    kept_links = [r for r in links if r["item_seq"] in product_seqs and r["ingr_code"] in ingr_codes]
+    kept_barcodes = [r for r in barcodes if r["item_seq"] in product_seqs]
+    kept_rules = [r for r in rules
+                  if r["ingr_a"] in ingr_codes and (not r.get("ingr_b") or r["ingr_b"] in ingr_codes)]
+    dropped = {"product_ingredients": len(links) - len(kept_links), "barcodes": len(barcodes) - len(kept_barcodes),
+               "dur_rules": len(rules) - len(kept_rules)}
+
     with conn:
         if replace:
-            for table in ("dur_rule", "drug_barcode", "product_ingredient", "ingredient", "drug_product"):
+            for table in ("dur_rule", "drug_insurance", "drug_barcode", "product_ingredient", "ingredient",
+                          "drug_product"):
                 conn.execute(f"DELETE FROM {table}")
         conn.executemany(
             "INSERT OR REPLACE INTO ingredient (ingr_code, name_ko, name_en) VALUES (?, ?, ?)",
@@ -80,12 +102,13 @@ def import_dir(conn: sqlite3.Connection, directory: Path, is_sample: bool, repla
         )
         conn.executemany(
             "INSERT OR REPLACE INTO product_ingredient (item_seq, ingr_code, amount) VALUES (?, ?, ?)",
-            [(r["item_seq"], r["ingr_code"], _blank_to_none(r.get("amount"))) for r in links],
+            [(r["item_seq"], r["ingr_code"], _blank_to_none(r.get("amount"))) for r in kept_links],
         )
         conn.executemany(
             "INSERT OR REPLACE INTO drug_barcode (barcode, item_seq) VALUES (?, ?)",
-            [(r["barcode"], r["item_seq"]) for r in barcodes],
+            [(r["barcode"], r["item_seq"]) for r in kept_barcodes],
         )
+        conn.executemany("INSERT OR REPLACE INTO drug_insurance (code, item_seq) VALUES (?, ?)", insurance)
         conn.executemany(
             """INSERT INTO dur_rule (type, ingr_a, ingr_b, group_code, group_name, detail, source, data_date, is_sample)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -95,18 +118,22 @@ def import_dir(conn: sqlite3.Connection, directory: Path, is_sample: bool, repla
                     _blank_to_none(r.get("group_name")), _blank_to_none(r.get("detail")),
                     _blank_to_none(r.get("source")), _blank_to_none(r.get("data_date")), flag,
                 )
-                for r in rules
+                for r in kept_rules
             ],
         )
-        data_dates = [r["data_date"] for r in products + rules if r.get("data_date")]
+        data_dates = [r["data_date"] for r in products + kept_rules if r.get("data_date")]
         set_meta(conn, "data_date", max(data_dates) if data_dates else None)
         set_meta(conn, "dataset", "sample" if is_sample else "public")
         set_meta(conn, "rule_version", RULE_VERSION)
         set_meta(conn, "imported_at", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        set_meta(conn, "import_source_counts", json.dumps(
+            {"product_ingredients": len(links), "barcodes": len(barcodes), "dur_rules": len(rules)}))
+        set_meta(conn, "import_dropped", json.dumps(dropped))
 
     return {
-        "products": len(products), "ingredients": len(ingredients), "product_ingredients": len(links),
-        "barcodes": len(barcodes), "dur_rules": len(rules),
+        "products": len(products), "ingredients": len(ingredients), "product_ingredients": len(kept_links),
+        "barcodes": len(kept_barcodes), "insurance_codes": len(insurance), "dur_rules": len(kept_rules),
+        "dropped": dropped,
     }
 
 

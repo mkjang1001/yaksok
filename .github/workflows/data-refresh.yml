@@ -1,0 +1,174 @@
+# 약물 데이터 자동 갱신: 공공데이터포털 수집 → 가져오기 → 조각 내보내기 → 검사 → main 에 커밋 → 배포
+#
+# 필요한 것 (backend/README.md "서비스키를 받은 뒤" 참고)
+#   - 저장소 Settings › Secrets and variables › Actions › New repository secret
+#       DATA_GO_KR_SERVICE_KEY = 공공데이터포털 일반 인증키 (Decoding 키 권장)
+#   - backend/data/datagokr_config.json  (예시 파일을 복사해 명세와 대조한 것)
+#   - Settings › Actions › General › Workflow permissions 를 "Read and write" 로
+# 둘 중 하나라도 없으면 아무것도 바꾸지 않고 성공으로 끝낸다.
+#
+# GITHUB_TOKEN 으로 올린 커밋은 다른 워크플로(deploy.yml 의 push)를 깨우지 않는다.
+# 그래서 커밋 뒤 deploy.yml 을 workflow_dispatch 로 직접 실행한다.
+name: data-refresh
+
+on:
+  schedule:
+    - cron: "0 19 * * 0"   # 매주 월요일 04:00 KST (일요일 19:00 UTC)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "검사까지만 하고 커밋하지 않기"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # main 에 데이터 커밋
+  issues: write     # 실패 알림 이슈
+  actions: write    # deploy.yml 실행
+
+concurrency:
+  group: data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: 준비물 확인
+        id: ready
+        run: |
+          {
+            echo "YAKSOK_DB=$RUNNER_TEMP/yaksok.db"
+            echo "CSV_DIR=$RUNNER_TEMP/public-csv"
+            echo "NEW_DATA=$RUNNER_TEMP/new-data"
+            echo "REPORT=$RUNNER_TEMP/report.md"
+          } >> "$GITHUB_ENV"
+          if [ -z "$DATA_GO_KR_SERVICE_KEY" ]; then
+            echo "::notice title=데이터 갱신 건너뜀::DATA_GO_KR_SERVICE_KEY 시크릿이 아직 없어요. 공공데이터포털에서 서비스키를 받은 뒤 Settings › Secrets and variables › Actions 에 넣어 주세요. 지금은 샘플 데이터를 그대로 둡니다."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          elif [ ! -f data/datagokr_config.json ]; then
+            echo "::notice title=데이터 갱신 건너뜀::backend/data/datagokr_config.json 이 없어요. datagokr_config.example.json 을 복사해 명세와 대조한 뒤 커밋해 주세요."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.ready.outputs.go == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - uses: actions/setup-node@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 설치와 테스트
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pytest -q
+
+      - name: 공공데이터 수집
+        if: steps.ready.outputs.go == 'true'
+        run: python -m app.datagokr data/datagokr_config.json "$CSV_DIR"
+
+      - name: CSV 검사
+        if: steps.ready.outputs.go == 'true'
+        run: python -m app.validate csv "$CSV_DIR" --report "$REPORT"
+
+      - name: DB 가져오기와 조각 내보내기
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          python -m app.cli init
+          python -m app.cli import "$CSV_DIR"
+          python -m app.export_static "$NEW_DATA"
+
+      - name: 데이터 검사
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          python -m app.validate db \
+            --previous-meta ../frontend/public/data/meta.json \
+            --export-dir "$NEW_DATA" \
+            --report "$REPORT"
+
+      - name: 새 데이터로 웹앱 테스트·빌드 (deploy.yml 과 같은 과정)
+        if: steps.ready.outputs.go == 'true'
+        working-directory: .
+        run: |
+          rm -rf frontend/public/data
+          cp -r "$NEW_DATA" frontend/public/data
+          cd frontend
+          npm ci
+          npm test
+          npm run build
+
+      - name: main 에 커밋
+        id: commit
+        if: steps.ready.outputs.go == 'true' && !inputs.dry_run
+        working-directory: .
+        run: |
+          git add -A frontend/public/data
+          # generated_at 만 바뀐 경우는 커밋하지 않는다
+          changed=$(git diff --cached --name-only | grep -v '^frontend/public/data/meta.json$' || true)
+          if [ -z "$changed" ]; then
+            echo "데이터 변화 없음"
+            git reset -q
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          date=$(python3 -c "import json;print(json.load(open('frontend/public/data/meta.json'))['data_date'])")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "약물 데이터 갱신 (기준일 ${date})"
+          git pull -q --rebase origin main
+          git push origin HEAD:main
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: 배포 실행
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main
+
+      - name: 요약
+        if: always() && steps.ready.outputs.go == 'true'
+        run: |
+          [ -f "$REPORT" ] && cat "$REPORT" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: 실패 알림 이슈
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="데이터 자동 갱신 실패"
+          {
+            echo "약물 데이터 자동 갱신이 실패해서 **배포 중인 데이터는 바꾸지 않았습니다.**"
+            echo
+            echo "- 실행 기록: $RUN_URL"
+            echo "- 흔한 원인: 서비스키 만료·미승인, 하루 호출 한도, 응답 필드 이름 변경, 품목 수 급감"
+            echo
+            [ -f "$REPORT" ] && cat "$REPORT"
+          } > "$RUNNER_TEMP/issue.md"
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file "$RUNNER_TEMP/issue.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/issue.md"
+          fi
