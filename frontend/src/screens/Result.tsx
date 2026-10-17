@@ -111,6 +111,8 @@ export function Result() {
           </div>
         )}
 
+        <a className="btn btn-outline" href="#/share">보호자에게 보내기</a>
+
         <p className="fine">
           데이터 기준일 {result.data_date ?? "-"} · 규칙 버전 {result.rule_version}
           {unapproved && " · 감수 전 문구 포함"}

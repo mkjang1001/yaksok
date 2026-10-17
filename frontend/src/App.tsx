@@ -12,6 +12,8 @@ import { Print } from "./screens/Print";
 import { Result } from "./screens/Result";
 import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
+import { Share } from "./screens/Share";
+import { SharedView } from "./screens/SharedView";
 import { useStore } from "./store";
 
 export function App() {
@@ -37,6 +39,8 @@ function screen(route: ReturnType<typeof useRoute>) {
     case "/detail": return <Detail id={route.param} />;
     case "/print": return <Print />;
     case "/settings": return <Settings />;
+    case "/share": return <Share />;
+    case "/shared": return <SharedView data={route.param} />;
     case "/helper": return <Helper step={route.query.get("step")} />;
     default: return <Home />;
   }
