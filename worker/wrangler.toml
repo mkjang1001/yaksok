@@ -1,0 +1,20 @@
+# 약속 사진 글자 읽기 Worker — 배포 방법은 README.md
+name = "yaksok-ocr"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# 로그·추적을 남기지 않는다 (사진과 글자는 원래 기록하지 않음)
+[observability]
+enabled = false
+
+[vars]
+ALLOWED_ORIGINS = "https://mkjang1001.github.io,http://localhost:5173,http://localhost:4173"
+# Google Vision 무료 한도(한 달 1,000장)를 넘지 않게 하루 전체 30장
+DAILY_LIMIT = "30"
+
+# 요청 수 세기용 저장소. `npx wrangler kv namespace create RATE_LIMIT` 후 나온 id로 바꾼다.
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# GOOGLE_VISION_API_KEY 는 여기 쓰지 않는다: `npx wrangler secret put GOOGLE_VISION_API_KEY`

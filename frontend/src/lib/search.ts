@@ -73,24 +73,122 @@ export function splitDose(line: string): [string, string | null] {
   return [line.replace(DOSE_RE_ALL, " "), dose];
 }
 
+/** 처방전 약 줄 앞의 9자리 보험(EDI) 코드. 전화·사업자번호처럼 -로 이어진 숫자는 빼고 찾는다. */
+const INSURANCE_RE = /(?<![\d-])(\d{9})(?![\d-])/;
+
+/** 줄 전체를 버리는 잡음: 약국명·전화·주소·날짜·금액 */
+const NOISE_LINE_RES: RegExp[] = [
+  /약국|약사|조제|처방(전|일|의|기관)|교부|발행|병원|의원|클리닉|환자|성명|주민|면허/, // 약국·병원·사람
+  /전화|tel|fax|팩스|☎|\d{2,4}[-)\s.]\s*\d{3,4}[-.\s]\d{4}/i, // 전화
+  /주소|(특별|광역|자치)?[가-힣]{1,4}(시|도)\s+[가-힣]{1,5}(구|군|시)|[가-힣\d]+(로|길)\s*\d+(-\d+)?(번길)?/, // 주소
+  /(19|20)\d{2}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]\s*\d{1,2}|(조제|처방|교부)?일자|\d{1,2}\s*월\s*\d{1,2}\s*일/, // 날짜
+  /\d{1,3}(,\d{3})+\s*원?|\d+\s*원(?![가-힣])|금액|본인\s*부담|약제비|합계|수납|영수|카드|현금|비급여|급여/, // 금액
+  /사업자|등록번호|요양기관|기관\s*기호/,
+];
+
+/** 약 이름 옆에 붙어 있는 복용법 조각 (지우고 나서 남은 글자로 판단) */
+const INSTRUCTION_RES: RegExp[] = [
+  /(1일|하루)\s*\d+\s*(회|번)/g,
+  /\d+\s*회\s*\d+(\.\d+)?\s*(정|캡슐|포|알|봉|매|ml)/g,
+  /\d+(\.\d+)?\s*(정|캡슐|포|알|봉)\s*씩/g,
+  /\d+\s*일\s*(분|치)/g,
+  /(아침|점심|저녁|잠자기|자기|취침)\s*(전|후)?/g,
+  /식\s*(전|후|간)/g,
+  /공복|매일|필요\s*시|아플\s*때/g,
+  /복용\s*(하세요|하십시오|합니다|방법)?|드세요|드십시오|드시고|하세요/g,
+  /\d+\s*분\s*(이내|후|전)?/g,
+  /(?<![가-힣])총(?![가-힣])/g,
+];
+const stripInstructions = (text: string) => INSTRUCTION_RES.reduce((t, re) => t.replace(re, " "), text);
+
+const LEADING_JUNK = /^[\s\d.)\]\-–·•*#:①-⑳]+/;
+const TRAILING_NUMBERS = /(\s+\d+(\.\d+)?)+\s*$/;
+const FORM_END = /(정|캡슐|캅셀|시럽|현탁액|과립|산|연고|크림|겔|패취|패치|액|주)$/;
+
+export function extractInsuranceCode(line: string): string | null {
+  return line.match(INSURANCE_RE)?.[1] ?? null;
+}
+
+function hangulCount(text: string): number {
+  return [...text].filter((ch) => ch >= "가" && ch <= "힣").length;
+}
+
+/** 약국명·전화·주소·날짜·금액 줄인지 (함량과 보험 코드는 빼고 본다: "…로 20mg" 같은 이름이 주소로 잡히지 않게) */
+export function isNoiseLine(raw: string): boolean {
+  const code = extractInsuranceCode(raw);
+  const [noDose] = splitDose(code ? raw.replace(code, " ") : raw);
+  return NOISE_LINE_RES.some((re) => re.test(noDose));
+}
+
 function isNoise(norm: string): boolean {
-  const hangul = [...norm].filter((ch) => ch >= "가" && ch <= "힣").length;
-  if (hangul < 2) return true;
+  if (hangulCount(norm) < 2) return true;
   return NOISE_WORDS.some((w) => norm.includes(w)) && norm.length > 12;
 }
 
-/** 봉투 글자 → 줄마다 약 후보 Top-3. 줄 앞 두 글자의 검색 조각만 받는다. */
-export async function matchLines(data: DrugData, lines: string[], top = 3): Promise<OcrLine[]> {
-  const prepared = lines
-    .map((raw) => raw.trim())
-    .filter(Boolean)
-    .map((raw) => {
-      const [text, dose] = splitDose(raw);
-      return { raw, text, dose, norm: normalize(text) };
-    })
-    .filter((l) => !isNoise(l.norm));
+/**
+ * 한 줄에 약이 둘 이상 붙어 있으면 나눈다.
+ * - 함량 뒤에 바로 다른 이름이 오면 ("에소메프라졸정40mg 라베프라졸정10mg")
+ * - 쉼표·빗금·가운뎃점으로 이어져 있으면 ("타이레놀정, 아스피린정")
+ * - 제형으로 끝나는 이름 두 개가 띄어 쓰여 있으면 ("암로디핀정 메트포르민정")
+ */
+export function splitDrugs(line: string): string[] {
+  const marked = line
+    .replace(/(\d+(?:\.\d+)?\s*(?:mg|㎎|밀리그램|mcg|㎍|g|ml|㎖))\s*[,/·|+]?\s*(?=[가-힣a-zA-Z[(])/gi, "$1\n")
+    .replace(/([가-힣a-zA-Z\d)\]])\s*[,/·|+]\s*(?=[가-힣a-zA-Z[(])/g, "$1\n");
+  return marked.split("\n").flatMap((piece) => {
+    const words = piece.trim().split(/\s+/);
+    if (words.length < 2) return [piece];
+    const out: string[] = [];
+    let cur: string[] = [];
+    for (const w of words) {
+      const prev = cur[cur.length - 1];
+      if (prev && hangulCount(prev) >= 3 && FORM_END.test(prev) && hangulCount(w) >= 3 && FORM_END.test(w.replace(/[\d.]+\s*\w*$/, ""))) {
+        out.push(cur.join(" "));
+        cur = [];
+      }
+      cur.push(w);
+    }
+    out.push(cur.join(" "));
+    return out;
+  }).map((p) => p.trim()).filter(Boolean);
+}
 
-  const results = await Promise.all(prepared.map(async (l): Promise<OcrLine | null> => {
+/** 봉투 한 줄(조각)을 약 이름·함량·보험 코드로 나눈다. 잡음이면 noise=true. */
+export function prepareLine(raw: string) {
+  const insurance_code = extractInsuranceCode(raw);
+  const noCode = insurance_code ? raw.replace(insurance_code, " ") : raw;
+  const [noDose, dose] = splitDose(noCode);
+  const text = stripInstructions(noDose)
+    .replace(TRAILING_NUMBERS, " ")
+    .replace(LEADING_JUNK, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const norm = normalize(text);
+  return { raw, text, dose, norm, insurance_code, noise: isNoiseLine(raw) || isNoise(norm) };
+}
+
+/** 봉투·처방전 글자에서 보험 코드만 모은다 (코드→품목 조회는 데이터 쪽에서 붙인다). */
+export function extractInsuranceCodes(lines: string[]): string[] {
+  const codes = lines.flatMap(splitDrugs).map(extractInsuranceCode).filter((c): c is string => !!c);
+  return [...new Set(codes)];
+}
+
+/** 봉투에서 찾은 한 줄 + 처방전이면 그 줄의 9자리 보험 코드 */
+export interface EnvelopeLine extends OcrLine {
+  insurance_code: string | null;
+}
+
+/** 봉투 글자 → 줄마다 약 후보 Top-3. 줄 앞 두 글자의 검색 조각만 받는다. */
+export async function matchLines(data: DrugData, lines: string[], top = 3): Promise<EnvelopeLine[]> {
+  const prepared = lines
+    .flatMap((raw) => raw.split(/\r?\n/))
+    .map((raw) => raw.trim())
+    .filter((raw) => raw && !isNoiseLine(raw))
+    .flatMap(splitDrugs)
+    .map(prepareLine)
+    .filter((l) => !l.noise);
+
+  const results = await Promise.all(prepared.map(async (l): Promise<EnvelopeLine | null> => {
     const key = searchKey(l.norm);
     if (!key) return null;
     const rows = await data.searchRows(key);
@@ -104,8 +202,9 @@ export async function matchLines(data: DrugData, lines: string[], top = 3): Prom
     return {
       line: l.raw,
       dose: l.dose,
+      insurance_code: l.insurance_code,
       candidates: hits.map((h) => ({ ...rowToDrug(h.row), score: Math.round(h.score * 1000) / 1000 })),
     };
   }));
-  return results.filter((r): r is OcrLine => !!r && r.candidates.length > 0);
+  return results.filter((r): r is EnvelopeLine => !!r && r.candidates.length > 0);
 }
