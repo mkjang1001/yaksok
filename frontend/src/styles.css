@@ -248,3 +248,11 @@ h1, h2, h3, p { margin: 0; }
 .share-qr svg { width: 100%; max-width: 280px; height: auto; background: #fff; }
 .share-banner { padding: 0.5rem 1rem; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; font-weight: 700; text-align: center; }
 .share-confirm { border-color: var(--accent); }
+
+/* ---------- 오프라인 · 앱 설치 · 개인정보 (기능 G·I) ---------- */
+.offline-banner { max-width: 600px; margin: 0 auto; padding: 0.55rem 1rem; background: var(--amber-soft); color: var(--amber-ink); border-bottom: 2px solid var(--amber-line); font-size: 0.85rem; font-weight: 700; text-align: center; }
+.install-card { border-color: var(--accent); background: var(--accent-soft); }
+.install-steps { margin: 0; padding-left: 1.3rem; font-size: 0.9rem; line-height: 1.7; }
+.legal-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 1rem; }
+.legal-links a { display: inline-flex; align-items: center; min-height: 2.4rem; font-size: 0.8rem; color: var(--muted); }
+.settings-section { display: flex; flex-direction: column; gap: 0.6rem; padding-top: 0.8rem; border-top: 1px solid var(--line); }
