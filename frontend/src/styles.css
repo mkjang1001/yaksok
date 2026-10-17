@@ -240,3 +240,11 @@ h1, h2, h3, p { margin: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* ---------- 보호자 공유 (#/share, #/shared) ---------- */
+.share-pin { max-width: 9rem; font-size: 1.4rem; font-weight: 700; letter-spacing: 0.35em; text-align: center; }
+.share-link { min-height: 5.5rem; font-size: 0.75rem; word-break: break-all; color: var(--ink-2); }
+.share-qr { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 0.9rem; border: 2px solid var(--line); border-radius: 0.8rem; text-align: center; }
+.share-qr svg { width: 100%; max-width: 280px; height: auto; background: #fff; }
+.share-banner { padding: 0.5rem 1rem; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; font-weight: 700; text-align: center; }
+.share-confirm { border-color: var(--accent); }
