@@ -1,0 +1,57 @@
+{
+  "_note": "자리표시 예시입니다. 공공데이터포털 활용 신청 후 받은 최신 명세로 url과 fields(응답 필드 이름)를 모두 확인·수정하세요. 성분코드-품목 연결, 효능군 소속은 데이터셋 구조에 따라 별도 job이 더 필요할 수 있습니다.",
+  "jobs": [
+    {
+      "name": "DUR 병용금기",
+      "table": "dur_rules",
+      "url": "https://apis.data.go.kr/1471000/[DUR 성분정보 서비스]/[병용금기 오퍼레이션]",
+      "params": {},
+      "fields": {
+        "ingr_a": "[성분코드 필드]",
+        "ingr_b": "[병용금기 성분코드 필드]",
+        "detail": "[금기 내용 필드]",
+        "data_date": "[변경일자 필드]"
+      },
+      "constants": { "type": "COMBO_TABOO", "source": "식약처 DUR 병용금기" }
+    },
+    {
+      "name": "DUR 노인주의",
+      "table": "dur_rules",
+      "url": "https://apis.data.go.kr/1471000/[DUR 성분정보 서비스]/[노인주의 오퍼레이션]",
+      "params": {},
+      "fields": {
+        "ingr_a": "[성분코드 필드]",
+        "detail": "[주의 내용 필드]",
+        "data_date": "[변경일자 필드]"
+      },
+      "constants": { "type": "ELDERLY", "source": "식약처 DUR 노인주의" }
+    },
+    {
+      "name": "DUR 효능군중복",
+      "table": "dur_rules",
+      "url": "https://apis.data.go.kr/1471000/[DUR 성분정보 서비스]/[효능군중복 오퍼레이션]",
+      "params": {},
+      "fields": {
+        "ingr_a": "[성분코드 필드]",
+        "group_code": "[효능군 코드 필드]",
+        "group_name": "[효능군 이름 필드]",
+        "data_date": "[변경일자 필드]"
+      },
+      "constants": { "type": "EFFICACY_DUP", "source": "식약처 DUR 효능군중복" }
+    },
+    {
+      "name": "e약은요 (쉬운 효능)",
+      "table": "products",
+      "url": "https://apis.data.go.kr/1471000/[의약품개요정보 서비스]/[목록 오퍼레이션]",
+      "params": {},
+      "fields": {
+        "item_seq": "[품목기준코드 필드]",
+        "name": "[품목명 필드]",
+        "company": "[업체명 필드]",
+        "easy_efficacy": "[효능 필드]",
+        "pill_image_url": "[이미지 필드]",
+        "data_date": "[수정일자 필드]"
+      }
+    }
+  ]
+}

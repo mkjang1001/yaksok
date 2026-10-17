@@ -1,0 +1,79 @@
+[
+  {
+    "rule_type": "R1",
+    "severity": "red",
+    "title": "함께 드시면 안 되는 약이 있어요",
+    "body": "{a_wa} {b_eun} 함께 쓰면 안 되는 조합으로 알려져 있어요. 꼭 약사·의사에게 확인하세요.",
+    "question": "{a_wa} {b_eul} 같이 먹어도 되나요? 함께 먹으면 안 되는 조합이라고 나왔어요.",
+    "tts_text": "함께 드시면 안 되는 약이 있어요. 꼭 약사님이나 의사 선생님께 확인하세요.",
+    "approved_by": null,
+    "approved_at": null,
+    "version": 1
+  },
+  {
+    "rule_type": "R2",
+    "severity": "red",
+    "title": "같은 성분이 두 약에 들어 있어요",
+    "body": "{a_wa} {b}에 모두 {ingredient_i} 들어 있어요. 함께 드셔도 되는지 약사님께 여쭤보세요.",
+    "question": "{a_wa} {b_eul} 같이 먹어도 되나요? 둘 다 {ingredient_i} 들어 있다고 나왔어요.",
+    "tts_text": "두 약에 같은 성분이 있어요. 약사님께 같이 드셔도 되는지 물어보세요.",
+    "approved_by": null,
+    "approved_at": null,
+    "version": 1
+  },
+  {
+    "rule_type": "R3",
+    "severity": "amber",
+    "title": "비슷한 약을 두 곳에서 받으셨어요",
+    "body": "{a_wa} {b_eun} 같은 종류({group})의 약이에요. 둘 다 드셔야 하는지 다음 진료 때 물어보세요.",
+    "question": "{a_wa} {b_eul} 둘 다 먹어야 하나요? 같은 종류의 약이라고 나왔어요.",
+    "tts_text": "비슷한 종류의 약을 두 곳에서 받으셨어요. 다음 진료 때 물어보세요.",
+    "approved_by": null,
+    "approved_at": null,
+    "version": 1
+  },
+  {
+    "rule_type": "R3_SAME",
+    "severity": "grey",
+    "title": "같은 종류의 약이 함께 있어요",
+    "body": "{a_wa} {b_eun} 같은 종류({group})의 약이에요. 같은 곳에서 받은 약이라 의사 선생님이 함께 쓰도록 하셨을 수 있어요.",
+    "question": null,
+    "tts_text": "같은 종류의 약이 함께 있어요. 참고하세요.",
+    "approved_by": null,
+    "approved_at": null,
+    "version": 1
+  },
+  {
+    "rule_type": "R4",
+    "severity": "amber",
+    "title": "어르신께 주의가 필요한 약이에요",
+    "body": "{a}에 든 {ingredient_eun} 65세 이상 어르신께 주의가 필요한 성분이에요. 계속 드셔도 되는지 다음 진료 때 물어보세요.",
+    "question": "{a}에 든 {ingredient_i} 나이 든 사람에게 주의가 필요하다고 나왔어요. 계속 먹어도 되나요?",
+    "tts_text": "어르신께 주의가 필요한 약이 있어요. 다음 진료 때 물어보세요.",
+    "approved_by": null,
+    "approved_at": null,
+    "version": 1
+  },
+  {
+    "rule_type": "R5",
+    "severity": "grey",
+    "title": "약을 {count}개 드시고 계세요",
+    "body": "약이 많으면 겹치는 약이 생기기 쉬워요. 다음 진료 때 이 목록을 보여 드리면 도움이 돼요.",
+    "question": null,
+    "tts_text": "약을 {count}개 드시고 계세요. 다음 진료 때 이 목록을 보여 드리세요.",
+    "approved_by": null,
+    "approved_at": null,
+    "version": 1
+  },
+  {
+    "rule_type": "R5_PROGRAM",
+    "severity": "grey",
+    "title": "약을 {count}개 드시고 계세요",
+    "body": "약이 많으신 분은 국민건강보험공단 다제약물 관리사업으로 약사 상담을 받을 수 있어요. 대상인지는 가까운 공단 지사에 물어보세요.",
+    "question": "다제약물 관리사업으로 약 상담을 받을 수 있나요?",
+    "tts_text": "약을 {count}개 드시고 계세요. 건강보험공단에서 약 상담을 받을 수 있는지 물어보세요.",
+    "approved_by": null,
+    "approved_at": null,
+    "version": 1
+  }
+]

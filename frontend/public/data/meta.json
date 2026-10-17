@@ -1,0 +1,1 @@
+{"data_date":"2026-10-13","rule_version":"2026.10.1","dataset":"sample","generated_at":"2026-10-17T09:38:37+00:00","shards":{"drug":256,"barcode":256,"rule":64,"search_key_chars":2},"counts":{"products":17,"search_files":11,"drug_files":16,"rule_files":9,"barcode_files":3}}

@@ -1,0 +1,8 @@
+node_modules/
+frontend/dist/
+backend/.venv/
+__pycache__/
+.pytest_cache/
+backend/data/yaksok.db
+backend/data/public/
+.env
