@@ -22,6 +22,11 @@ CREATE TABLE IF NOT EXISTS drug_barcode (
   item_seq  TEXT NOT NULL REFERENCES drug_product(item_seq) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS drug_insurance (
+  code      TEXT PRIMARY KEY,               -- 보험코드 (EDI 9자리)
+  item_seq  TEXT NOT NULL REFERENCES drug_product(item_seq) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS ingredient (
   ingr_code TEXT PRIMARY KEY,               -- DUR 성분코드
   name_ko   TEXT NOT NULL,

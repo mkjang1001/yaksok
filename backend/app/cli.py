@@ -4,6 +4,8 @@
   python -m app.cli import <폴더>          공공데이터에서 만든 CSV 폴더 가져오기 (샘플 대체)
   python -m app.cli templates             data/templates.json 문구 다시 넣기
   python -m app.cli info                  DB 상태 보기
+
+새 데이터 검사는 `python -m app.validate` (README "데이터 검사").
 """
 import argparse
 from pathlib import Path
