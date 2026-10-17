@@ -18,7 +18,8 @@ function swBuild(): Plugin {
       outDir = c.build.outDir;
     },
     generateBundle(_, bundle) {
-      assets = Object.keys(bundle).filter((f) => !f.endsWith(".map") && f !== "index.html");
+      // 바코드 화면에서만 쓰는 zxing(약 1MB)은 미리 받지 않는다 — 그 화면을 열 때 받는다
+      assets = Object.keys(bundle).filter((f) => !f.endsWith(".map") && f !== "index.html" && !/zxing/i.test(f));
     },
     writeBundle() {
       const file = join(outDir, "sw.js");
