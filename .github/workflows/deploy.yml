@@ -32,6 +32,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          # 실서비스 공개 전: 저장소 Settings › Variables 에서 STRICT_APPROVAL=true 로 바꾸면
+          # 감수 약사 승인이 없는 문구는 화면에 나오지 않는다.
+          VITE_STRICT_APPROVAL: ${{ vars.STRICT_APPROVAL || 'false' }}
+          VITE_OCR_URL: ${{ vars.OCR_URL || '' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
