@@ -37,6 +37,15 @@ function parseAssets() {
 
 const abs = (path) => new URL(path, BASE).href;
 
+/**
+ * Cloudflare Pages 는 index.html·privacy.html 을 .html 없는 주소로 넘긴다(308).
+ * 넘겨받은 응답을 그대로 담아 두면 오프라인에서 화면으로 보여 줄 때 브라우저가 막으므로, 내용만 새 응답으로 옮겨 담는다.
+ */
+async function unredirect(res) {
+  if (!res.redirected) return res;
+  return new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -45,7 +54,7 @@ self.addEventListener("install", (event) => {
       await Promise.all(
         SHELL_FILES.map((p) =>
           fetch(abs(p), { cache: "reload" })
-            .then((res) => (res.ok ? cache.put(abs(p), res) : undefined))
+            .then(async (res) => (res.ok ? cache.put(abs(p), await unredirect(res)) : undefined))
             .catch(() => undefined),
         ),
       );
@@ -91,7 +100,7 @@ async function pageNetworkFirst(req, path) {
   const cache = await caches.open(SHELL_CACHE);
   try {
     const res = await fetch(req);
-    if (res.ok) cache.put(req, res.clone());
+    if (res.ok) unredirect(res.clone()).then((r) => cache.put(req, r)).catch(() => undefined);
     return res;
   } catch {
     const key = path === "" ? abs("./") : req.url.split(/[?#]/)[0];

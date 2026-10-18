@@ -28,7 +28,7 @@ POST /ocr   (multipart/form-data, 필드 이름 image, JPEG/PNG, 2MB 이하)
   - 요청 수는 Cloudflare KV에 셉니다. IP는 날짜와 섞어 해시한 값으로만 저장하고 이틀 뒤 저절로 지워집니다.
   - KV는 대략적인 카운터라서 동시에 몰리면 한두 장 넘을 수 있습니다. 그래서 전체 한도를 무료 한도보다 낮게 둡니다.
   - KV나 키가 없으면 셀 수 없으니 **아예 막습니다** (503).
-- **허용한 사이트에서만** 부를 수 있습니다: `ALLOWED_ORIGINS` (쉼표로 구분). 기본값은 `https://mkjang1001.github.io`, `http://localhost:5173`, `http://localhost:4173`.
+- **허용한 사이트에서만** 부를 수 있습니다: `ALLOWED_ORIGINS` (쉼표로 구분). 기본값은 `https://mkjang1001.github.io`, `https://yaksok.pages.dev`, `http://localhost:5173`, `http://localhost:4173`.
 
 ## 배포 방법 (직접 하셔야 하는 단계)
 

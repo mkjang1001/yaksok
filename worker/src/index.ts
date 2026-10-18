@@ -29,7 +29,7 @@ export const MAX_BYTES = 2 * 1024 * 1024;
 export const PER_MINUTE = 10;
 export const PER_DAY = 50;
 export const DEFAULT_DAILY_LIMIT = 30;
-export const DEFAULT_ORIGINS = ["https://mkjang1001.github.io", "http://localhost:5173", "http://localhost:4173"];
+export const DEFAULT_ORIGINS = ["https://mkjang1001.github.io", "https://yaksok.pages.dev", "http://localhost:5173", "http://localhost:4173"];
 const VISION_URL = "https://vision.googleapis.com/v1/images:annotate";
 
 const MSG = {

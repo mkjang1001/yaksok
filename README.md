@@ -80,9 +80,22 @@ npm test
 2. 저장소 **Settings › Pages › Source**를 **GitHub Actions**로 바꿉니다.
 3. `main` 브랜치에 올릴 때마다 테스트 → 빌드 → 배포가 자동으로 됩니다. 주소는 `https://<아이디>.github.io/<저장소>/`.
 
-### Cloudflare Pages
+### Cloudflare Pages — https://yaksok.pages.dev
 
-저장소를 연결하고 Root directory `frontend`, Build command `npm run build`, Output `dist`로 설정합니다. 무료 플랜은 배포당 파일 수에 한도가 있으니, 실제 데이터를 넣은 뒤 조각 파일 수를 확인하세요 (`meta.json`의 `counts`).
+GitHub Pages와 **같은 빌드**를 함께 올립니다. Pages 프로젝트 `yaksok`은 이미 만들어 두었습니다.
+
+- 자동 배포: `deploy.yml`이 빌드 뒤 `wrangler pages deploy`로 올립니다. 저장소에 아래 두 값이 있을 때만 동작하고, 없으면 그 단계만 건너뜁니다.
+  - Secret `CLOUDFLARE_API_TOKEN`: Cloudflare › My Profile › API Tokens › Create Token › Custom token, 권한 **Account · Cloudflare Pages · Edit** 하나만.
+  - Variable `CLOUDFLARE_ACCOUNT_ID`: Cloudflare 계정 ID.
+- 손으로 올리기 (PC에서 `wrangler login` 한 뒤):
+
+```bash
+cd yaksok/frontend
+npm run build
+npx wrangler pages deploy dist --project-name yaksok --branch main
+```
+
+무료 플랜은 배포당 파일 2만 개까지라, 실제 데이터를 넣은 뒤 조각 파일 수를 확인하세요 (`meta.json`의 `counts`).
 
 두 방식 모두 주소에 `#/result`처럼 `#`이 붙는 방식이라, 새로고침해도 404가 나지 않습니다.
 
